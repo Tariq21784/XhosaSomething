@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A History of the Xhosa c1700-1835 - Interactive Explorer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'xhosa-earth': '#78350F',   /* amber-900 */
+                        'xhosa-clay': '#B45309',    /* amber-700 */
+                        'xhosa-sand': '#FEF3C7',    /* amber-50 */
+                        'xhosa-leaf': '#064E3B',    /* emerald-900 */
+                        'xhosa-dark': '#1C1917',    /* stone-900 */
+                    },
+                    fontFamily: {
+                        'serif': ['Merriweather', 'serif'],
+                        'sans': ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Merriweather:wght@300;400;700&display=swap');
+        
+        body { background-color: #FAFAF9; color: #1C1917; }
+        
+        /* Chart Container Strict Styling */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 40vh;
+            max-height: 400px;
+            min-height: 300px;
+        }
+
+        /* Custom Scrollbar for inner content */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #FEF3C7; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #B45309; border-radius: 4px; }
+
+        /* Accordion transition */
+        .accordion-content {
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+        }
+        .accordion-content.open {
+            max-height: 2000px; /* Large enough for exhaustive lists */
+            opacity: 1;
+        }
+        
+        .nav-btn.active {
+            background-color: #FEF3C7;
+            color: #78350F;
+            border-left: 4px solid #78350F;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- Chosen Palette: Earth & Clay (Warm neutrals: FAFAF9 background, FEF3C7 sand accents, 78350F & B45309 earth/clay primary colors, 064E3B leaf accent, 1C1917 dark text) -->
+    
+    <!-- Application Structure Plan: Dashboard/SPA Layout. 
+         A fixed sidebar handles navigation to prevent scrolling fatigue. 
+         The main content area utilizes dynamic JS view switching. 
+         To fulfill the user's explicit request for "extensive and exhaustive bullet point form", 
+         the content is structured into deep, toggleable accordions containing highly detailed hierarchical lists. 
+         This allows for the massive amount of historical data in Peires' thesis to be accessible without overwhelming the UI. 
+         Visualizations (charts) are placed in dedicated views to summarize economic and chronological data. -->
+         
+    <!-- Visualization & Content Choices:
+         1. Lineage & Chiefs: HTML nested interactive lists (Goal: Organize/Hierarchy. Method: DOM manipulation. Justification: Best way to show deep genealogical relationships without SVG/Mermaid. Adheres to "exhaustive bullets" request).
+         2. Economic Structure: Chart.js Doughnut Chart (Goal: Inform/Proportions. Method: Chart.js. Justification: Clearly shows relative importance of cattle vs agriculture).
+         3. Timeline of Reigns: Chart.js Horizontal Bar Chart (Goal: Timeline/Compare. Method: Chart.js. Justification: Shows overlapping reigns of chiefs and regents dynamically).
+         4. Textual Content: Extensive Bulleted Accordions (Goal: Inform/Analyze. Method: HTML/JS. Justification: Direct response to user prompt). -->
+         
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <!-- Sidebar Navigation -->
+    <nav class="w-full md:w-64 bg-xhosa-earth text-white flex-shrink-0 md:h-full overflow-y-auto z-20 shadow-xl">
+        <div class="p-6">
+            <h1 class="text-2xl font-serif font-bold mb-2 leading-tight">A History of the Xhosa</h1>
+            <p class="text-sm text-xhosa-sand opacity-80 mb-6">c. 1700 - 1835<br>Based on J.B. Peires</p>
+            <hr class="border-xhosa-clay mb-6">
+            <ul class="space-y-2" id="nav-menu">
+                <li><button onclick="switchTab('overview')" class="nav-btn active w-full text-left px-4 py-3 rounded transition-colors hover:bg-xhosa-clay flex justify-between items-center" data-target="overview"><span>&#9733; Overview & Environment</span></button></li>
+                <li><button onclick="switchTab('lineage')" class="nav-btn w-full text-left px-4 py-3 rounded transition-colors hover:bg-xhosa-clay flex justify-between items-center" data-target="lineage"><span>&#9776; The Royal Lineage</span></button></li>
+                <li><button onclick="switchTab('political')" class="nav-btn w-full text-left px-4 py-3 rounded transition-colors hover:bg-xhosa-clay flex justify-between items-center" data-target="political"><span>&#9874; Political System</span></button></li>
+                <li><button onclick="switchTab('economy')" class="nav-btn w-full text-left px-4 py-3 rounded transition-colors hover:bg-xhosa-clay flex justify-between items-center" data-target="economy"><span>&#9968; Economy & Trade</span></button></li>
+                <li><button onclick="switchTab('conflicts')" class="nav-btn w-full text-left px-4 py-3 rounded transition-colors hover:bg-xhosa-clay flex justify-between items-center" data-target="conflicts"><span>&#9876; Frontier Conflicts</span></button></li>
+                <li><button onclick="switchTab('religion')" class="nav-btn w-full text-left px-4 py-3 rounded transition-colors hover:bg-xhosa-clay flex justify-between items-center" data-target="religion"><span>&#9728; Religion & Society</span></button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow bg-[#FAFAF9] h-full overflow-y-auto custom-scrollbar relative w-full">
+        <div class="max-w-5xl mx-auto p-6 md:p-12 pb-24">
+
+            <!-- VIEW: OVERVIEW -->
+            <section id="view-overview" class="view-section active block">
+                <header class="mb-8 border-b-2 border-xhosa-sand pb-4">
+                    <h2 class="text-4xl font-serif text-xhosa-earth font-bold mb-3">Prologue: The Xhosa and their Environment</h2>
+                    <p class="text-lg text-gray-700">An exhaustive analysis of the geographical, historiographical, and environmental foundations that shaped the early Xhosa nation prior to 1835.</p>
+                </header>
+
+                <div class="space-y-4">
+                    <!-- Accordion 1 -->
+                    <div class="border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <button class="accordion-toggle w-full px-6 py-4 text-left font-semibold text-xhosa-earth hover:bg-xhosa-sand flex justify-between items-center" onclick="toggleAccordion(this)">
+                            1. Geographical Environment & Settlement Patterns
+                            <span class="text-xl">&#43;</span>
+                        </button>
+                        <div class="accordion-content px-6 bg-white">
+                            <ul class="list-disc pl-6 py-4 space-y-2 text-gray-700">
+                                <li><strong>Location:</strong> Historically situated between the Drakensberg mountains, the Indian Ocean, the Great Kei River, and stretching towards the Sundays River.</li>
+                                <li><strong>Topography:</strong> Characterized by parallel river valleys running from the mountains to the sea, creating natural geographical boundaries and segmenting settlement.</li>
+                                <li><strong>Rainfall and Climate:</strong> Reliable summer rainfall on the coastal terraces supported both pastoralism and agriculture, contrasting with the arid interior.</li>
+                                <li><strong>Vegetation:</strong> Sweetveld (highly nutritious year-round) in the valleys, sourveld (nutritious only in spring/summer) on the ridges, necessitating seasonal cattle movement (transhumance).</li>
+                                <li><strong>Settlement Structure:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>Dispersed homesteads (imizi) rather than concentrated villages.</li>
+                                        <li>Driven by ecological necessity: avoiding overgrazing and exhaustion of water supplies.</li>
+                                        <li>Each umzi was economically self-sufficient, centered around a cattle enclosure (ubuhlanti).</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Ecological Crisis:</strong> As expansion westward was halted by colonial frontiers, population density increased, leading to environmental stress and internal friction.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Accordion 2 -->
+                    <div class="border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <button class="accordion-toggle w-full px-6 py-4 text-left font-semibold text-xhosa-earth hover:bg-xhosa-sand flex justify-between items-center" onclick="toggleAccordion(this)">
+                            2. Historiographical Context
+                            <span class="text-xl">&#43;</span>
+                        </button>
+                        <div class="accordion-content px-6 bg-white">
+                            <ul class="list-disc pl-6 py-4 space-y-2 text-gray-700">
+                                <li><strong>Nature of Sources:</strong> Heavy reliance on oral traditions (amaBali) synthesized with early colonial written records (missionaries, travelers, officials).</li>
+                                <li><strong>Bias in Written Records:</strong> Colonial sources often misunderstood Xhosa political structures, assuming despotic power where power was actually decentralized and consensual.</li>
+                                <li><strong>Oral Tradition Dynamics:</strong> Traditions are not static; they serve as charters for present political relationships. The myth of Tshawe, for example, justifies the royal lineage's dominance.</li>
+                                <li><strong>The "Hammond-Tooke Hypothesis":</strong> Peires argues against earlier anthropological models that suggested a rigid, purely kinship-based segmentation, proposing a more dynamic political process involving assimilation and power consolidation.</li>
+                                <li><strong>Synthesis Approach:</strong> Peires combines structural anthropology with historical chronology to reconstruct a living, changing society rather than a static "traditional" baseline.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: LINEAGE -->
+            <section id="view-lineage" class="view-section hidden">
+                <header class="mb-8 border-b-2 border-xhosa-sand pb-4">
+                    <h2 class="text-4xl font-serif text-xhosa-earth font-bold mb-3">The Birth of the Nation & Royal Lineage</h2>
+                    <p class="text-lg text-gray-700">An exhaustive hierarchical breakdown of the Tshawe royal lineage and the structural segmentation of the Xhosa people.</p>
+                </header>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+                    <h3 class="text-xl font-bold text-xhosa-clay mb-4">Interactive Lineage Tree (The Tshawe Dynasty)</h3>
+                    <p class="text-sm text-gray-500 mb-4 italic">Click on a chief to expand their sub-lineage and historical details.</p>
+                    
+                    <ul class="pl-0 space-y-2" id="lineage-root">
+                        <!-- JS populated lineage -->
+                    </ul>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <button class="accordion-toggle w-full px-6 py-4 text-left font-semibold text-xhosa-earth hover:bg-xhosa-sand flex justify-between items-center" onclick="toggleAccordion(this)">
+                            Exhaustive Details: The Tshawe Conquest & Nation Building
+                            <span class="text-xl">&#43;</span>
+                        </button>
+                        <div class="accordion-content px-6 bg-white">
+                            <ul class="list-disc pl-6 py-4 space-y-2 text-gray-700">
+                                <li><strong>The Myth of Origin:</strong> Xhosa identity is traced back to a mythical founder, Xhosa, but political unity was forged by Tshawe.</li>
+                                <li><strong>The Tshawe Usurpation:</strong> Tshawe, a junior son, overthrew his senior brother Cirha with the help of the amaRudulu clan, establishing the amaTshawe as the royal clan.</li>
+                                <li><strong>Mechanism of Expansion (Ukukhonza):</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>The Tshawe did not conquer solely by force. They incorporated alien groups (Khoisan and other Bantu-speakers) through 'ukukhonza' (clientage/subordination).</li>
+                                        <li>Incorporated groups retained internal autonomy but paid tribute and recognized Tshawe paramountcy.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>The Great Split (Reign of Phalo):</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>Phalo married two women of equal rank simultaneously.</li>
+                                        <li>To avoid civil war, the council created two 'Great Houses': The Great House (Gcaleka) and the Right-Hand House (Rharhabe).</li>
+                                        <li>This institutionalized a structural division. The Gcaleka remained paramount in rank (east of the Kei), but the Rharhabe (west of the Kei) became politically independent.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Subsequent Fissions:</strong> The Rharhabe further divided between Ngqika (Great House) and Ndlambe (Regent/uncle who refused to cede power), defining the frontier dynamics of the early 19th century.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: POLITICAL -->
+            <section id="view-political" class="view-section hidden">
+                <header class="mb-8 border-b-2 border-xhosa-sand pb-4">
+                    <h2 class="text-4xl font-serif text-xhosa-earth font-bold mb-3">Political System (Reign of Phalo onwards)</h2>
+                    <p class="text-lg text-gray-700">An exhaustive breakdown of Xhosa governance, law, and the decentralization of power.</p>
+                </header>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+                     <h3 class="text-xl font-bold text-xhosa-clay mb-4">Chronology of Key Reigns</h3>
+                     <p class="text-sm text-gray-600 mb-4">Visualizing the overlapping tenures of paramounts, regents, and Right-Hand house leaders.</p>
+                     <div class="chart-container">
+                         <canvas id="timelineChart"></canvas>
+                     </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <button class="accordion-toggle w-full px-6 py-4 text-left font-semibold text-xhosa-earth hover:bg-xhosa-sand flex justify-between items-center" onclick="toggleAccordion(this)">
+                            Exhaustive Analysis: The Power of the Chief (Inkosi)
+                            <span class="text-xl">&#43;</span>
+                        </button>
+                        <div class="accordion-content px-6 bg-white">
+                            <ul class="list-disc pl-6 py-4 space-y-2 text-gray-700">
+                                <li><strong>Nature of Authority:</strong> The Chief was not an autocrat. His power was derived from consensus and the support of his councillors (amaphakathi). "A chief is a chief by grace of his people."</li>
+                                <li><strong>Prerogatives of the Chief:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>Receiving tribute (izizi - death duties, fines for shedding blood).</li>
+                                        <li>Commanding the army in national conflicts.</li>
+                                        <li>Allocating land.</li>
+                                        <li>Right of 'umkhosi' (calling the nation to assembly).</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Limitations on Power:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li><strong>The Amaphakathi (Councillors):</strong> Powerful commoners who represented public opinion. A chief could not easily act against their united will.</li>
+                                        <li><strong>Fission:</strong> Disgruntled subjects could simply move away and 'khonza' (give allegiance to) a rival chief or a junior son setting up his own chiefdom. This constant threat of emigration kept chiefs responsive to their people.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>The Court (Inkundla):</strong> The center of political and judicial life. All adult men could attend and speak. Justice was restorative rather than purely punitive.</li>
+                                <li><strong>The Paramountcy:</strong> The Gcaleka chief (e.g., Hintsa) was Paramount over all Xhosa. However, this was largely ritual and prestige-based. He could not dictate internal policy to the Rharhabe or Ndlambe chiefs.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <button class="accordion-toggle w-full px-6 py-4 text-left font-semibold text-xhosa-earth hover:bg-xhosa-sand flex justify-between items-center" onclick="toggleAccordion(this)">
+                            Exhaustive Analysis: Law & Society
+                            <span class="text-xl">&#43;</span>
+                        </button>
+                        <div class="accordion-content px-6 bg-white">
+                            <ul class="list-disc pl-6 py-4 space-y-2 text-gray-700">
+                                <li><strong>Legal Principles:</strong> Customary law was fluid and based on precedent, but adaptable. The primary goal was restoring social harmony and compensation for loss.</li>
+                                <li><strong>Property:</strong> Land was communally held by the chief in trust for the nation. Individuals had rights of usage (usufruct), not absolute ownership. Cattle were privately owned.</li>
+                                <li><strong>Crimes vs. Civil Wrongs:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>Treason, witchcraft, and murder were crimes against the Chief (as he owned the blood of his subjects). Fines went to the Chief.</li>
+                                        <li>Theft, adultery, and damage to property were civil matters settled by compensation (usually in cattle) to the victim's family.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Witchcraft (Ubuthakathi):</strong> Used as both a mechanism for social control and a political weapon. Chiefs could use witch-doctors (amagqirha) to eliminate wealthy or overly ambitious rivals by "smelling them out".</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: ECONOMY -->
+            <section id="view-economy" class="view-section hidden">
+                <header class="mb-8 border-b-2 border-xhosa-sand pb-4">
+                    <h2 class="text-4xl font-serif text-xhosa-earth font-bold mb-3">Economic Development to 1835</h2>
+                    <p class="text-lg text-gray-700">An exhaustive examination of the economic pillars of Xhosa society: cattle, agriculture, and expanding trade networks.</p>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col justify-center">
+                        <h3 class="text-xl font-bold text-xhosa-clay mb-2 text-center">Economic Pillars (Estimated Impact)</h3>
+                        <p class="text-sm text-center text-gray-500 mb-4">Relative cultural and subsistence value.</p>
+                        <div class="chart-container h-[300px] max-h-[300px]">
+                            <canvas id="economyChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="text-xl font-bold text-xhosa-leaf mb-4">The Centrality of Cattle</h3>
+                        <p class="text-gray-700 mb-4">Cattle were not merely food; they were the foundation of the political, social, and economic system.</p>
+                        <ul class="list-disc pl-5 space-y-2 text-sm text-gray-700">
+                            <li><strong>Currency & Wealth:</strong> Used for all major transactions, fines, and storing wealth.</li>
+                            <li><strong>Social Reproduction (Lobola):</strong> Bridewealth paid in cattle legitimized marriage and transferred rights over children to the husband's lineage.</li>
+                            <li><strong>Political Power (Ubusoqa):</strong> Chiefs loaned cattle to poor commoners. The recipient retained the milk and some offspring, but owed political allegiance and labor to the chief.</li>
+                            <li><strong>Religious Significance:</strong> Crucial for sacrifices to ancestors (amathongo).</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <button class="accordion-toggle w-full px-6 py-4 text-left font-semibold text-xhosa-earth hover:bg-xhosa-sand flex justify-between items-center" onclick="toggleAccordion(this)">
+                            Exhaustive Analysis: Agriculture, Hunting & Trade
+                            <span class="text-xl">&#43;</span>
+                        </button>
+                        <div class="accordion-content px-6 bg-white">
+                            <ul class="list-disc pl-6 py-4 space-y-2 text-gray-700">
+                                <li><strong>Agriculture:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>Sorghum, maize (introduced later), pumpkins, melons, and beans.</li>
+                                        <li>Women performed the majority of agricultural labor.</li>
+                                        <li>Vulnerable to drought and locusts, making the reliability of cattle even more critical.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Hunting:</strong> Primarily a male activity. Provided dietary supplement but also crucial trade goods (ivory, skins) for external markets.</li>
+                                <li><strong>Pre-Colonial Trade:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>Traded tobacco and cannabis (dagga) with Khoisan in exchange for cattle and clientship.</li>
+                                        <li>Traded iron and copper with groups to the East (Thembu, Mpondo).</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Trade with the Cape Colony:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>Initially intermittent (ivory/skins for beads, copper, iron).</li>
+                                        <li>Post-1820: Establishment of formal trade fairs (e.g., Fort Willshire).</li>
+                                        <li><strong>Impact:</strong> Introduction of European goods (blankets, iron hoes, beads) shifted internal economic dynamics. Chiefs tried to monopolize trade to reinforce their power, but commoners also accumulated wealth.</li>
+                                        <li>Creation of a new class of intermediaries and increased demand for colonial goods.</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: CONFLICTS -->
+            <section id="view-conflicts" class="view-section hidden">
+                <header class="mb-8 border-b-2 border-xhosa-sand pb-4">
+                    <h2 class="text-4xl font-serif text-xhosa-earth font-bold mb-3">Frontier Dynamics: From Ngqika's Peace to Maqoma's War</h2>
+                    <p class="text-lg text-gray-700">An exhaustive chronological and structural breakdown of the pressures that led to the Frontier Wars (up to 1835).</p>
+                </header>
+
+                <div class="bg-xhosa-sand p-6 rounded-lg mb-8 border-l-4 border-xhosa-clay">
+                    <h3 class="text-xl font-bold text-xhosa-earth mb-2">The Core Misunderstanding</h3>
+                    <p class="text-gray-800">The colonial government demanded a fixed, impermeable border (the Fish River, later Keiskamma) and a single autocratic "King" (Ngqika) to hold responsible for all cattle thefts. The Xhosa political system was decentralized, expansive, and borders were viewed as porous zones of interaction, not rigid lines.</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <button class="accordion-toggle w-full px-6 py-4 text-left font-semibold text-xhosa-earth hover:bg-xhosa-sand flex justify-between items-center" onclick="toggleAccordion(this)">
+                            Exhaustive Timeline: The Zuurveld & The Rharhabe Schism (1770s - 1819)
+                            <span class="text-xl">&#43;</span>
+                        </button>
+                        <div class="accordion-content px-6 bg-white">
+                            <ul class="list-disc pl-6 py-4 space-y-2 text-gray-700">
+                                <li><strong>The Zuurveld Contest:</strong> The area between the Sundays and Fish rivers was prime grazing land contested by Trekboers, Khoikhoi, and Xhosa (specifically Ndlambe and Gqunukhwebe).</li>
+                                <li><strong>The Ngqika-Ndlambe Rivalry:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>Ndlambe acted as regent for the young Ngqika. When Ngqika came of age, Ndlambe refused to relinquish total control.</li>
+                                        <li>This led to a bitter, decades-long civil war within the Rharhabe branch.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Colonial Intervention (1811-1812):</strong> The Fourth Frontier War. Lt. Col. John Graham brutally expelled Ndlambe and 20,000 Xhosa from the Zuurveld across the Fish River, causing massive overcrowding.</li>
+                                <li><strong>The Somerset-Ngqika Treaty (1817):</strong> Governor Lord Charles Somerset recognized Ngqika as the supreme Xhosa monarch (a fiction) and instituted the "Spooor Law" (allowing commandos to trace stolen cattle to the nearest kraal and extract compensation).</li>
+                                <li><strong>Battle of Amalinde (1818):</strong> Ndlambe, supported by the prophet Nxele (Makhanda) and Hintsa, decisively defeated Ngqika's forces.</li>
+                                <li><strong>Fifth Frontier War (1819):</strong> Ngqika appealed to the British. British forces repelled Ndlambe's attack on Grahamstown (led by Nxele). As "punishment", Somerset annexed the land between the Fish and Keiskamma rivers from *all* Xhosa (including his ally Ngqika) to create a "Neutral Territory".</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="border border-gray-200 rounded-lg bg-white shadow-sm">
+                        <button class="accordion-toggle w-full px-6 py-4 text-left font-semibold text-xhosa-earth hover:bg-xhosa-sand flex justify-between items-center" onclick="toggleAccordion(this)">
+                            Exhaustive Timeline: The Rise of Maqoma & The 1835 War (1820 - 1835)
+                            <span class="text-xl">&#43;</span>
+                        </button>
+                        <div class="accordion-content px-6 bg-white">
+                            <ul class="list-disc pl-6 py-4 space-y-2 text-gray-700">
+                                <li><strong>1820 Settlers:</strong> Introduction of 4,000 British settlers into the Zuurveld (Albany) closed the frontier entirely and intensified land pressure.</li>
+                                <li><strong>Maqoma (Ngqika's Right-Hand Son):</strong> Emerged as the most brilliant political and military leader of his generation. He established himself in the Kat River valley (part of the "Neutral" territory).</li>
+                                <li><strong>The Expulsions:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>1829: Maqoma expelled from the Kat River Valley to make way for a Khoikhoi settlement.</li>
+                                        <li>1833: Tyali (Ngqika's minor son) and Maqoma repeatedly expelled from the Tyhume valley.</li>
+                                        <li>The constant military patrols, burning of huts, and seizing of cattle under the reprisal system caused immense hardship and anger.</li>
+                                    </ul>
+                                </li>
+                                <li><strong>The Sixth Frontier War (1834-1835) - Hintsa's War:</strong>
+                                    <ul class="list-[circle] pl-6 mt-1 space-y-1">
+                                        <li>Driven to desperation by land hunger and colonial harassment, Maqoma and Tyali invaded the colony in December 1834.</li>
+                                        <li>Governor D'Urban retaliated massively.</li>
+                                        <li><strong>The Death of Hintsa (1835):</strong> Though Hintsa (the Gcaleka Paramount) tried to remain neutral, D'Urban held him responsible for the actions of the Rharhabe. Hintsa was taken hostage, mutilated, and murdered by colonial troops while allegedly trying to escape. This event left a permanent scar on Xhosa-colonial relations.</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: RELIGION -->
+            <section id="view-religion" class="view-section hidden">
+                <header class="mb-8 border-b-2 border-xhosa-sand pb-4">
+                    <h2 class="text-4xl font-serif text-xhosa-earth font-bold mb-3">Religion & The Impact of Christianity</h2>
+                    <p class="text-lg text-gray-700">An exhaustive comparison of traditional Xhosa cosmology and the disruptive/transformative effects of early missionaries.</p>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Traditional Religion -->
+                    <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+                        <h3 class="text-2xl font-serif text-xhosa-earth border-b-2 border-xhosa-sand pb-2 mb-4">Traditional Xhosa Religion</h3>
+                        <ul class="list-disc pl-5 space-y-3 text-gray-700">
+                            <li><strong>Supreme Being (Qamata/Thixo):</strong> A distant creator god, rarely approached directly.</li>
+                            <li><strong>The Ancestors (Amathongo):</strong> The active spiritual agents. They concerned themselves with the welfare of their living descendants.</li>
+                            <li><strong>Ritual & Sacrifice:</strong> Harmony with ancestors was maintained through custom and sacrifices (usually cattle) at critical life stages (birth, initiation, marriage, death) or during illness.</li>
+                            <li><strong>Pollution (Umlaza):</strong> Ritual impurity caused by menstruation, childbirth, or contact with corpses, requiring purification.</li>
+                            <li><strong>Diviners (Amagqirha):</strong> Called by the ancestors to diagnose illness, find lost objects, and "smell out" witches. They were the intellectual and spiritual leaders.</li>
+                            <li><strong>Cosmology:</strong> Religion was deeply integrated into the social and political fabric. It explained misfortune and provided methods for restoring order.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Christian Impact -->
+                    <div class="bg-xhosa-sand border border-xhosa-clay rounded-lg shadow-sm p-6">
+                        <h3 class="text-2xl font-serif text-xhosa-clay border-b-2 border-white pb-2 mb-4">The Missionary Impact</h3>
+                        <ul class="list-disc pl-5 space-y-3 text-gray-800">
+                            <li><strong>Early Agents:</strong> J.T. van der Kemp (London Missionary Society), followed by John Brownlee, William Shaw (Wesleyan).</li>
+                            <li><strong>Subversion of Custom:</strong> Missionaries attacked the core of Xhosa society:
+                                <ul class="list-[square] pl-6 mt-1 space-y-1 text-sm">
+                                    <li>Condemned Lobola (bridewealth) as 'buying wives'.</li>
+                                    <li>Condemned initiation rites and polygyny.</li>
+                                    <li>Undermined the authority of chiefs and amagqirha.</li>
+                                </ul>
+                            </li>
+                            <li><strong>Creation of the 'School People' (Amagqobhoka):</strong> Converts often moved to mission stations, severing ties with their chiefs and traditional obligations, creating a divided society (Red vs. School).</li>
+                            <li><strong>The Prophetic Response:</strong>
+                                <ul class="list-[square] pl-6 mt-1 space-y-1 text-sm">
+                                    <li>Figures like <strong>Nxele</strong> (Makhanda) and <strong>Ntsikana</strong> synthesized Christian concepts with Xhosa worldview.</li>
+                                    <li>Nxele developed a militant theology of a Black God (Mdalidiphu) combating the White God, leading the 1819 attack on Grahamstown.</li>
+                                    <li>Ntsikana preached submission and peace, creating the first great Xhosa Christian hymns.</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Vanilla JS Logic -->
+    <script>
+        // --- Navigation Logic ---
+        function switchTab(tabId) {
+            // Update buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.target === tabId) btn.classList.add('active');
+            });
+
+            // Update views
+            document.querySelectorAll('.view-section').forEach(section => {
+                section.classList.remove('block');
+                section.classList.add('hidden');
+            });
+            const targetView = document.getElementById('view-' + tabId);
+            targetView.classList.remove('hidden');
+            targetView.classList.add('block');
+
+            // Trigger chart renders if they haven't been rendered yet or need resizing
+            if(tabId === 'political') initTimelineChart();
+            if(tabId === 'economy') initEconomyChart();
+            
+            // Scroll to top of main content
+            document.querySelector('main').scrollTop = 0;
+        }
+
+        // --- Accordion Logic ---
+        function toggleAccordion(button) {
+            const content = button.nextElementSibling;
+            const icon = button.querySelector('span');
+            
+            if (content.classList.contains('open')) {
+                content.classList.remove('open');
+                button.classList.remove('bg-xhosa-sand');
+                icon.innerHTML = '&#43;'; // Plus
+            } else {
+                content.classList.add('open');
+                button.classList.add('bg-xhosa-sand');
+                icon.innerHTML = '&#8722;'; // Minus
+            }
+        }
+
+        // --- Interactive Lineage Data & Rendering ---
+        const lineageData = {
+            name: "Xhosa (Mythical Founder)",
+            desc: "The eponymous ancestor. Real political unification began later.",
+            children: [
+                {
+                    name: "Tshawe (The Usurper & Unifier)",
+                    desc: "Overthrew his senior brother Cirha with the amaRudulu. Established the royal clan and the mechanism of ukukhonza (clientage) to incorporate alien groups.",
+                    children: [
+                        {
+                            name: "Phalo (c. 1715 - 1775)",
+                            desc: "His reign saw the structural division of the nation into two Great Houses to prevent civil war over his two equal-ranked wives.",
+                            children: [
+                                {
+                                    name: "Gcaleka (Great House - East of Kei)",
+                                    desc: "Paramount in rank, but lacked direct political control over the Rharhabe. Attempted to consolidate power by becoming an igqirha (diviner).",
+                                    children: [
+                                        {
+                                            name: "Khawuta",
+                                            desc: "A weak ruler. His reign saw the consolidation of Rharhabe independence.",
+                                            children: [
+                                                {
+                                                    name: "Hintsa (c. 1804 - 1835)",
+                                                    desc: "Paramount during the escalating frontier conflicts. Attempted neutrality but was drawn into the 1835 war, taken hostage by D'Urban, and murdered. A pivotal trauma in Xhosa history."
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    name: "Rharhabe (Right-Hand House - West of Kei)",
+                                    desc: "Politically independent, expansive, and militaristic. Conquered Khoisan and Thembu territory. Died in battle against the Thembu.",
+                                    children: [
+                                        {
+                                            name: "Mlawu (Died before ruling)",
+                                            desc: "Heir of Rharhabe, died young, leaving a minor son (Ngqika).",
+                                            children: [
+                                                {
+                                                    name: "Ngqika (1795 - 1829)",
+                                                    desc: "Allied with the British to fight his uncle Ndlambe. Falsely recognized as 'King of the Xhosa' by Somerset. Yielded the Neutral Territory, losing legitimacy among his people.",
+                                                    children: [
+                                                        { name: "Sandile (Great Son)", desc: "Minor at Ngqika's death." },
+                                                        { name: "Maqoma (Right-Hand Son)", desc: "The brilliant military tactician and regent. Fought relentlessly against colonial expulsion from the Kat River and Tyhume valleys. Primary leader in the 1835 war." },
+                                                        { name: "Tyali", desc: "Key leader in the 1835 war alongside Maqoma." }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            name: "Ndlambe (Regent)",
+                                            desc: "Regent for Ngqika who refused to yield power. Built a massive following. Defeated Ngqika at Amalinde (1818) but was broken by British forces in 1819."
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        function buildLineageHTML(node) {
+            let html = `<li class="ml-4 mt-2 border-l-2 border-xhosa-sand pl-4">
+                <button class="text-left font-semibold text-xhosa-earth hover:text-xhosa-clay focus:outline-none flex items-center" onclick="toggleLineageNode(this)">
+                    <span class="mr-2 text-xs">&#9654;</span> ${node.name}
+                </button>
+                <div class="text-sm text-gray-600 mt-1 mb-2 hidden lineage-desc bg-gray-50 p-2 rounded">${node.desc}</div>
+            `;
+            
+            if (node.children && node.children.length > 0) {
+                html += `<ul class="hidden lineage-children">`;
+                node.children.forEach(child => {
+                    html += buildLineageHTML(child);
+                });
+                html += `</ul>`;
+            }
+            html += `</li>`;
+            return html;
+        }
+
+        function toggleLineageNode(btn) {
+            const icon = btn.querySelector('span');
+            const desc = btn.nextElementSibling;
+            const childrenList = desc.nextElementSibling;
+            
+            if (desc.classList.contains('hidden')) {
+                desc.classList.remove('hidden');
+                icon.innerHTML = '&#9660;'; // Down arrow
+                if (childrenList) childrenList.classList.remove('hidden');
+            } else {
+                desc.classList.add('hidden');
+                icon.innerHTML = '&#9654;'; // Right arrow
+                if (childrenList) childrenList.classList.add('hidden');
+            }
+        }
+
+        // Initialize Lineage
+        document.getElementById('lineage-root').innerHTML = buildLineageHTML(lineageData);
+        // Auto-expand the first two levels
+        const firstBtn = document.querySelector('#lineage-root > li > button');
+        if(firstBtn) toggleLineageNode(firstBtn);
+        const secondBtn = document.querySelector('#lineage-root > li > ul > li > button');
+        if(secondBtn) toggleLineageNode(secondBtn);
+
+        // --- Chart.js Initializations ---
+        let timelineChartInstance = null;
+        let economyChartInstance = null;
+
+        function initTimelineChart() {
+            if(timelineChartInstance) return; // Only init once
+            
+            const ctx = document.getElementById('timelineChart').getContext('2d');
+            
+            // Re-formatting data for a horizontal bar to simulate a Gantt/Timeline
+            const data = {
+                labels: ['Phalo (Unified)', 'Gcaleka (Great House)', 'Rharhabe (Right-Hand)', 'Ndlambe (Regent)', 'Ngqika', 'Hintsa (Paramount)'],
+                datasets: [{
+                    label: 'Reign Duration',
+                    // Format: [Start Year, End Year]
+                    data: [
+                        [1715, 1775],
+                        [1750, 1778],
+                        [1750, 1782],
+                        [1782, 1819], // End of massive power post 5th war
+                        [1795, 1829],
+                        [1804, 1835]
+                    ],
+                    backgroundColor: [
+                        '#B45309', '#78350F', '#064E3B', '#1C1917', '#B45309', '#78350F'
+                    ],
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            };
+
+            timelineChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: data,
+                options: {
+                    indexAxis: 'y', // Horizontal
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Reign: ${context.raw[0]} - ${context.raw[1]}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            min: 1700,
+                            max: 1840,
+                            title: { display: true, text: 'Year' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initEconomyChart() {
+            if(economyChartInstance) return;
+            
+            const ctx = document.getElementById('economyChart').getContext('2d');
+            
+            economyChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Cattle (Wealth/Status/Food)', 'Agriculture (Sorghum/Maize)', 'Hunting & Foraging', 'External Trade (Ivory/Skins)'],
+                    datasets: [{
+                        data: [50, 30, 10, 10], // Estimated relative importance based on text
+                        backgroundColor: [
+                            '#78350F', // Earth (Cattle)
+                            '#064E3B', // Leaf (Agri)
+                            '#B45309', // Clay (Hunting)
+                            '#FEF3C7'  // Sand (Trade)
+                        ],
+                        borderColor: '#FAFAF9',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { family: "'Inter', sans-serif" },
+                                boxWidth: 12
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    // Wrap label if too long (16 char logic requested, though standard Chart.js handles this okay, we force succinctness)
+                                    let label = context.label || '';
+                                    if(label.length > 20) label = label.substring(0, 20) + '...';
+                                    return ` ${label}: ~${context.raw}% impact`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+        }
+    </script>
+</body>
+</html>
